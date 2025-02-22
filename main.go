@@ -10,47 +10,21 @@ import (
 )
 
 const (
-	DEFAULT_NUMBER_OF_PICKS          = 5
-	DEFAULT_MIN_MATCHES              = 2
-	DEFAULT_MIN_LOTTERY_PICK         = 1
-	DEFAULT_MAX_LOTTERY_PICK         = 90
-	DEFAULT_PLAYER_NUMBERS_FILE_PATH = "10m-v2.txt"
+	DEFAULT_NUMBER_OF_PICKS        = 5            // Number of picks per player
+	DEFAULT_MIN_MATCHES            = 2            // Minimum matches required to win
+	DEFAULT_MIN_PICK               = 1            // Minimum valid lottery number
+	DEFAULT_MAX_PICK               = 90           // Maximum valid lottery number
+	DEFAULT_PLAYER_PICKS_FILE_PATH = "10m-v2.txt" // Path to player picks file
 )
 
+// Lottery defines the interface for lottery functionality.
 type Lottery interface {
-	ProcessPlayerNumbers(file *os.File) ([][]int, error)
-	ParseLotteryPicks(lotteryPicksEntry string, allPlayersNumbers [][]int) error
+	ProcessPlayerPicks(file *os.File) ([]LotteryPick, error)
+	MatchPicks(winningEntry string, playerPicks []LotteryPick) error
 }
 
-func initializeLottery() Lottery {
-	numberOfPicks, err := strconv.Atoi(os.Getenv("NUMBER_OF_PICKS"))
-	if err != nil {
-		numberOfPicks = DEFAULT_NUMBER_OF_PICKS
-	}
-
-	minMatches, err := strconv.Atoi(os.Getenv("MIN_MATCHES"))
-	if err != nil {
-		minMatches = DEFAULT_MIN_MATCHES
-	}
-
-	minLotteryPick, err := strconv.Atoi(os.Getenv("MIN_LOTTERY_PICK"))
-	if err != nil {
-		minLotteryPick = DEFAULT_MIN_LOTTERY_PICK
-	}
-
-	maxLotteryPick, err := strconv.Atoi(os.Getenv("MAX_LOTTERY_PICK"))
-	if err != nil {
-		maxLotteryPick = DEFAULT_MAX_LOTTERY_PICK
-	}
-
-	return lottery{
-		numberOfPicks,
-		minMatches,
-		minLotteryPick,
-		maxLotteryPick,
-	}
-}
-
+// main is the entry point for the Hungarian Lottery system.
+// Loads environment variables, processes player picks from a file, and matches lottery picks from stdin.
 func main() {
 	fmt.Println("Hungarian Lottery system. Press CTRL+C to exit")
 
@@ -58,35 +32,31 @@ func main() {
 		fmt.Println("Error loading .env file: ", err)
 	}
 
-	playerNumbersFile, err := initializePlayerNumbersFile()
-
+	file, err := initializePicksFile()
 	if err != nil {
 		fmt.Println("Error reading player numbers file:", err)
 		os.Exit(1)
 	}
-
-	defer playerNumbersFile.Close()
+	defer file.Close()
 
 	l := initializeLottery()
 
-	allPlayersNumbers, err := l.ProcessPlayerNumbers(playerNumbersFile)
-
+	// Read player picks from file
+	playerPicks, err := l.ProcessPlayerPicks(file)
 	if err != nil {
 		fmt.Println("Error processing player numbers:", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("\nEnter lottery picks")
-
+	fmt.Println("\nEnter winning lottery pick")
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for scanner.Scan() {
-
-		if err := l.ParseLotteryPicks(scanner.Text(), allPlayersNumbers); err != nil {
+		// Process each lottery pick entry
+		if err := l.MatchPicks(scanner.Text(), playerPicks); err != nil {
 			continue
 		}
-
-		fmt.Println("\nEnter lottery picks")
+		fmt.Println("\nEnter winning lottery pick")
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -95,13 +65,43 @@ func main() {
 	}
 }
 
-func initializePlayerNumbersFile() (*os.File, error) {
-
-	playerNumbersFilePath := os.Getenv("PLAYER_NUMBERS_FILE_PATH")
-
-	if playerNumbersFilePath == "" {
-		playerNumbersFilePath = DEFAULT_PLAYER_NUMBERS_FILE_PATH
+// initializeLottery constructs a Lottery instance with configuration from environment variables
+// or uses default settings if environment variables unset or invalid.
+func initializeLottery() Lottery {
+	numberOfPicks, err := strconv.Atoi(os.Getenv("NUMBER_OF_PICKS"))
+	if err != nil {
+		numberOfPicks = DEFAULT_NUMBER_OF_PICKS
 	}
 
-	return os.Open(playerNumbersFilePath)
+	minMatches, err := strconv.Atoi(os.Getenv("MIN_MATCHES"))
+	if err != nil || minMatches <= 0 {
+		minMatches = DEFAULT_MIN_MATCHES
+	}
+
+	minPick, err := strconv.Atoi(os.Getenv("MIN_PICK"))
+	if err != nil || minPick <= 0 {
+		minPick = DEFAULT_MIN_PICK
+	}
+
+	maxPick, err := strconv.Atoi(os.Getenv("MAX_PICK"))
+	if err != nil || maxPick > 128 {
+		maxPick = DEFAULT_MAX_PICK
+	}
+
+	return lottery{
+		numberOfPicks,
+		minMatches,
+		minPick,
+		maxPick,
+	}
+}
+
+// initializePicksFile opens the file containing player lottery picks.
+// Returns the opened file or an error if the file cannot be opened.
+func initializePicksFile() (*os.File, error) {
+	picksFilePath := os.Getenv("PLAYER_PICKS_FILE_PATH")
+	if picksFilePath == "" {
+		picksFilePath = DEFAULT_PLAYER_PICKS_FILE_PATH
+	}
+	return os.Open(picksFilePath)
 }
