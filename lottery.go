@@ -108,7 +108,6 @@ func (l lottery) MatchPicks(winningEntry string, playerPicks []LotteryPick) erro
 // The input must contain exactly numberOfPicks integers within range [minPick, maxPick].
 // Returns LotteryPick bit mask or an error if the input is invalid.
 func (l lottery) parseWinningEntry(winningEntry string) (LotteryPick, error) {
-
 	winningPick := strings.Fields(winningEntry)
 	if len(winningPick) != l.numberOfPicks {
 		fmt.Printf("Enter %d lottery picks\n", l.numberOfPicks)
@@ -157,22 +156,20 @@ func (l lottery) matchPicks(winningPick LotteryPick, playerPicks []LotteryPick) 
 
 	// Split playerPicks into chunks and process in parallel
 	for i := 0; i < numRoutines; i++ {
-
 		start := i * chunkSize
-
 		end := start + chunkSize
 		if end > len(playerPicks) {
-			end = len(playerPicks) // Last chunk takes remainder
+			end = len(playerPicks) // Last chunk takes remaining picks to process
 		}
 
 		if start >= end {
-			break // No more work to do
+			break // no more remaining picks to process
 		}
 
 		go func(picks []LotteryPick) {
 			winners := make(map[int]int)
 
-			// Process this chunk of player picks
+			// Process chunk of player picks
 			for _, pick := range picks {
 				matches := bits.OnesCount64(pick[0]&winningPick[0]) + bits.OnesCount64(pick[1]&winningPick[1])
 				if matches >= l.minMatches {

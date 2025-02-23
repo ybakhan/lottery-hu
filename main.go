@@ -34,7 +34,7 @@ func main() {
 
 	file, err := initializePicksFile()
 	if err != nil {
-		fmt.Println("Error reading player numbers file:", err)
+		fmt.Println("Error reading player picks file:", err)
 		os.Exit(1)
 	}
 	defer file.Close()
@@ -44,7 +44,7 @@ func main() {
 	// Read player picks from file
 	playerPicks, err := l.ProcessPlayerPicks(file)
 	if err != nil {
-		fmt.Println("Error processing player numbers:", err)
+		fmt.Println("Error processing player picks:", err)
 		os.Exit(1)
 	}
 
@@ -53,9 +53,7 @@ func main() {
 
 	for scanner.Scan() {
 		// Process each lottery pick entry
-		if err := l.MatchPicks(scanner.Text(), playerPicks); err != nil {
-			continue
-		}
+		_ = l.MatchPicks(scanner.Text(), playerPicks)
 		fmt.Println("\nEnter winning lottery pick")
 	}
 
